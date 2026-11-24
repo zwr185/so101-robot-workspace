@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    image_topic: "/image_raw"
+    output_topic: "box_center"
+    hue_min: 0
+    hue_max: 26
+    sat_min: 52
+    sat_max: 193
+    val_min: 222
+    val_max: 255
+    kernel_size: 5
+    erode_iter: 1
+    dilate_iter: 2
+    min_area: 760.0
+    show_window: true

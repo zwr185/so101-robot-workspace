@@ -1,0 +1,11 @@
+# Default initial positions for so101_new_follower's ros2_control fake system
+# Keep the fake robot at the SRDF "home" pose so it does not start in the
+# singular/self-colliding all-zero configuration.
+
+initial_positions:
+  elbow_flex: 1.418407769
+  gripper: 0.306640684
+  shoulder_lift: -1.583747577
+  shoulder_pan: -0.003067962
+  wrist_flex: 1.033747577
+  wrist_roll: 0.0

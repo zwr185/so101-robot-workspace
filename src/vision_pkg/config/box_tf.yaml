@@ -1,0 +1,17 @@
+/**:
+  ros__parameters:
+    input_topic: "/box_center"
+    output_topic: "/box_world_pos"
+    # auto: 有拟合文件时用透视变换，否则退回线性近似
+    # homography: 强制使用拟合文件  linear: 只用下面的线性参数
+    mode: "auto"
+    homography_file: "/home/zwr185/dev_ws/src/vision_pkg/json/box_tf_homography.json"
+    image_width: 1280
+    image_height: 720
+    camera_x: 7.0
+    camera_y: 37.0
+    camera_z: 45.0
+    target_z: 0.0
+    cm_per_pixel: 0.08
+    x_direction: 1
+    y_direction: 1

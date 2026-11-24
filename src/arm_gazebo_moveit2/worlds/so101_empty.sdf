@@ -1,0 +1,164 @@
+<?xml version="1.0"?>
+<!-- 最小可用世界：地面 + 太阳光 + 物理/用户命令/场景广播。后续再往里面加桌子、方块等。 -->
+<sdf version="1.9">
+  <world name="so101_world">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.4 0.4 0.4 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 木板：2m x 2m x 0.1m，静态。几何中心在 (0,0,0.05)，
+         即下表面中心与 world 原点重合，上表面高度 z=0.1。
+         机械臂 base_link 固定在 (0,0,0.1)，由 URDF 的 world_to_base 关节设置。 -->
+    <model name="wood_board">
+      <static>true</static>
+      <pose>0 0 0.05 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>2 2 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>2 2 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5625 0.325 0.125 1</ambient>
+            <diffuse>0.5625 0.325 0.125 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 障碍物：固定在木板上的长方体墙，用来挡住机械臂的直线路径。
+         机械臂零位时 TCP 在 (0.395, 0, 0.334)、home 位在 (0.195, 0, 0.153) 附近，
+         所以这堵墙放在 x=0.15（底座前方 26cm），高度 15cm，迫使机械臂绕行或从上方越过。 -->
+    <model name="obstacle_box">
+      <static>true</static>
+      <pose>0.18 0 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.06 0.18 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.06 0.18 0.1</size> 
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5625 0.325 0.125 1</ambient>
+            <diffuse>0.5625 0.325 0.125 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 待夹取的小方块：4cm x 4cm x 5cm，放在木板表面（下表面 z=0.1），
+         位于障碍物正后方 x=0.25，机械臂需要越过障碍物才能夹到。
+         非固定，受力后会被推动/掉落；质量按 625 kg/m^3 估算为 0.05 kg。 -->
+    <model name="target_block">
+      <pose>0.30 0 0.115 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>7.5e-06</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>7.5e-06</iyy>
+            <iyz>0</iyz>
+            <izz>7.5e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.03 0.03 0.03</size>
+            </box>
+          </geometry>
+          <!-- 提高摩擦，避免夹爪闭合/抬升时方块打滑 -->
+          <surface>
+            <friction>
+              <ode>
+                <mu>10.0</mu>
+                <mu2>10.0</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.03 0.03 0.03</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.1 0.2 0.8 1</ambient>
+            <diffuse>0.1 0.2 0.8 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

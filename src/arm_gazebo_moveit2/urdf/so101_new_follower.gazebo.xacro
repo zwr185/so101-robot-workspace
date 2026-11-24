@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo Harmonic 使用的机器人描述。
+  结构 = arm_description 的几何/惯量 + gazebo 版 ros2_control + gz_ros2_control 插件。
+  机械结构本身仍然复用 arm_description/urdf/arm.urdf.xacro，避免模型出现两份。
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="so101_new_follower">
+
+    <xacro:include filename="$(find arm_description)/urdf/arm.urdf.xacro"/>
+    <xacro:include filename="$(find arm_gazebo_moveit2)/urdf/so101_new_follower.ros2_control.xacro"/>
+
+    <!-- 世界坐标系锚点，供下面的固定关节使用 -->
+    <link name="world"/>
+
+    <!-- 木板定义在 worlds/so101_empty.sdf 中（静态模型）：
+         2m x 2m x 0.1m，下表面中心在 world 原点，上表面中心在 (0,0,0.1)。
+         木板是独立的世界物体，URDF 的关节不能跨模型引用，所以这里只把
+         base_link 固定到 world 原点上方 0.1m，正好落在木板上表面中心，
+         效果等同于底座固定在木板上。 -->
+    <joint name="world_to_base" type="fixed">
+        <parent link="world"/>
+        <child link="base_link"/>
+        <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    </joint>
+
+    <xacro:so101_new_follower_ros2_control name="ArmSystem"/>
+
+    <!-- gz_ros2_control 插件：随模型一起加载进 Gazebo，进程内提供 controller_manager -->
+    <gazebo>
+        <plugin filename="gz_ros2_control-system"
+                name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+            <parameters>$(find arm_gazebo_moveit2)/config/ros2_controllers.yaml</parameters>
+            <!-- 默认 0.1 太软，夹取小方块时关节和夹爪会被顶开 -->
+            <position_proportional_gain>0.5</position_proportional_gain>
+        </plugin>
+    </gazebo>
+
+</robot>

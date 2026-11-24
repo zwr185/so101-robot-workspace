@@ -1,0 +1,9 @@
+<library path="arm_hardware">
+  <class name="arm_hardware/St3215SystemHardware"
+         type="arm_hardware::St3215SystemHardware"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      SystemInterface for Feetech ST3215 serial bus servos over a USB-TTL adapter.
+    </description>
+  </class>
+</library>

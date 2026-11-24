@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo 专用 ros2_control 描述。
+  与 arm_moveit_config/config/so101_new_follower.ros2_control.xacro 的唯一区别：
+  hardware 插件换成 gz_ros2_control/GazeboSimSystem，由 Gazebo 进程内的
+  gz_ros2_control 插件提供 controller_manager。
+  关节名、command/state interface 必须与 config/ros2_controllers.yaml 完全一致。
+
+  注意：<ros2_control> 必须直接挂在 <robot> 下。Jazzy 的 controller_manager
+  会订阅 /robot_description 话题并用 URDF 解析器读取它，嵌在 <gazebo> 里会报
+  "no 'ros2_control' tag found in the URDF"。
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="so101_new_follower_ros2_control" params="name">
+        <ros2_control name="${name}" type="system">
+            <hardware>
+                <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+            </hardware>
+            <joint name="shoulder_pan">
+                <command_interface name="position"/>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+            <joint name="shoulder_lift">
+                <command_interface name="position"/>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+            <joint name="elbow_flex">
+                <command_interface name="position"/>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+            <joint name="wrist_flex">
+                <command_interface name="position"/>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+            <joint name="wrist_roll">
+                <command_interface name="position"/>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+            <joint name="gripper">
+                <command_interface name="position"/>
+                <state_interface name="position"/>
+                <state_interface name="velocity"/>
+            </joint>
+        </ros2_control>
+    </xacro:macro>
+</robot>

@@ -1,0 +1,10 @@
+# Gazebo 中按 link 覆盖的显示颜色，格式为 [r, g, b, a]，取值范围 0~1。
+# 只影响本包生成的 robot_description（也就是 Gazebo 里的外观），
+# 不会修改 arm_description，RViz 里的颜色保持不变。
+# 没有列出的 link（例如 base_link）沿用 URDF 里原来的材质。
+shoulder_link: [1.0, 1.0, 1.0, 1.0]
+upper_arm_link: [1.0, 1.0, 1.0, 1.0]
+lower_arm_link: [1.0, 1.0, 1.0, 1.0]
+wrist_link: [1.0, 1.0, 1.0, 1.0]
+gripper_link: [1.0, 1.0, 1.0, 1.0]
+moving_jaw_so101_v1_link: [1.0, 0.0, 0.0, 1.0]

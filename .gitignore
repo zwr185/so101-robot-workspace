@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build / runtime
+build/
+install/
+log/
+
+# Generated audio
+src/ai_pkg/tmp/
+
+# Backup files
+*.bak
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
