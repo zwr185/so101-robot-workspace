@@ -223,6 +223,7 @@ ros2 run ai_pkg mcp_server_node --ros-args -p http:=true
 | `llm_agent_node` | `tts_voice` | `zh-CN-XiaoyiNeural` | edge-tts 音色 |
 | `action_manager` | `startup_delay` | `1.0` | 动作节点启动等待（秒） |
 | `action_manager` | `grasp_startup_delay` | `2.0` | 抓取节点启动等待（秒） |
+| `action_manager` | `startup_timeout` | `10.0` | 等待动作节点订阅触发话题的最长时间（秒） |
 | `action_manager` | `vision_idle_timeout` | `30.0` | 视觉空闲关闭时间（秒） |
 | `robot_catch_box_node` | `detect_timeout` | `15.0` | 等待检测到目标的最长时间（秒） |
 | `robot_catch_box_node` | `manage_vision` | `true` | 是否由本节点启停视觉链路 |

@@ -9,6 +9,8 @@
 同一时间只执行一个动作；新的动作会先停止上一个，避免节点或串口冲突。
 """
 
+import os
+import signal
 import subprocess
 import threading
 import time
@@ -20,7 +22,7 @@ from std_msgs.msg import Bool
 
 NOD_DONE_TIMEOUT = 60.0
 SHAKE_DONE_TIMEOUT = 60.0
-GRASP_DONE_TIMEOUT = 100.0
+GRASP_DONE_TIMEOUT = 120.0
 
 DEFAULT_CALIBRATION = (
     '/home/zwr185/dev_ws/Seeed_RoboController/json/'
@@ -37,6 +39,8 @@ class RobotActionManagerNode(Node):
 
         self.declare_parameter('startup_delay', 1.0)
         self.declare_parameter('grasp_startup_delay', 2.0)
+        # 等待动作节点真正订阅触发话题的最长时间（秒）
+        self.declare_parameter('startup_timeout', 10.0)
         self.declare_parameter('calibration_file', DEFAULT_CALIBRATION)
         self.declare_parameter('input_yaw_offset', -90.0)
         self.declare_parameter('grasp_offset_x', -2.0)
@@ -51,6 +55,9 @@ class RobotActionManagerNode(Node):
         )
         self.grasp_startup_delay = float(
             self.get_parameter('grasp_startup_delay').value
+        )
+        self.startup_timeout = float(
+            self.get_parameter('startup_timeout').value
         )
         self.calibration_file = self.get_parameter(
             'calibration_file').value
@@ -81,6 +88,9 @@ class RobotActionManagerNode(Node):
         self.nod_done = threading.Event()
         self.shake_done = threading.Event()
         self.grasp_done = threading.Event()
+        self.nod_result = False
+        self.shake_result = False
+        self.grasp_result = False
 
         self.create_subscription(
             Bool, '/robot_nod_done', self._on_nod_done, 10)
@@ -134,16 +144,16 @@ class RobotActionManagerNode(Node):
     # --- 完成信号 ---
 
     def _on_nod_done(self, msg):
-        if msg.data:
-            self.nod_done.set()
+        self.nod_result = bool(msg.data)
+        self.nod_done.set()
 
     def _on_shake_done(self, msg):
-        if msg.data:
-            self.shake_done.set()
+        self.shake_result = bool(msg.data)
+        self.shake_done.set()
 
     def _on_grasp_done(self, msg):
-        if msg.data:
-            self.grasp_done.set()
+        self.grasp_result = bool(msg.data)
+        self.grasp_done.set()
 
     # --- 一次性动作 ---
 
@@ -178,6 +188,7 @@ class RobotActionManagerNode(Node):
 
     def _nod_worker(self):
         self.nod_done.clear()
+        self.nod_result = False
         proc = self._start_process(
             ['ros2', 'run', 'ai_pkg', 'robot_nod_node']
         )
@@ -186,16 +197,21 @@ class RobotActionManagerNode(Node):
         self._processes.append(proc)
 
         time.sleep(self.startup_delay)
-        if proc.poll() is not None:
-            self.get_logger().error('robot_nod_node 启动失败')
+        if not self._wait_for_trigger([proc], self.nod_trigger):
+            self.get_logger().error(
+                'robot_nod_node 启动失败或未就绪'
+            )
             return
 
         self.nod_trigger.publish(Bool(data=True))
         if not self.nod_done.wait(NOD_DONE_TIMEOUT):
             self.get_logger().warn('等待点头完成超时')
+        elif not self.nod_result:
+            self.get_logger().warn('点头动作失败')
 
     def _shake_worker(self):
         self.shake_done.clear()
+        self.shake_result = False
         proc = self._start_process(
             ['ros2', 'run', 'ai_pkg', 'robot_shake_head_node']
         )
@@ -204,16 +220,21 @@ class RobotActionManagerNode(Node):
         self._processes.append(proc)
 
         time.sleep(self.startup_delay)
-        if proc.poll() is not None:
-            self.get_logger().error('robot_shake_head_node 启动失败')
+        if not self._wait_for_trigger([proc], self.shake_trigger):
+            self.get_logger().error(
+                'robot_shake_head_node 启动失败或未就绪'
+            )
             return
 
         self.shake_trigger.publish(Bool(data=True))
         if not self.shake_done.wait(SHAKE_DONE_TIMEOUT):
             self.get_logger().warn('等待摇头完成超时')
+        elif not self.shake_result:
+            self.get_logger().warn('摇头动作失败')
 
     def _grasp_worker(self):
         self.grasp_done.clear()
+        self.grasp_result = False
         arm_proc = self._start_process(self._grasp_arm_command())
         action_proc = self._start_process(self._grasp_action_command())
         if arm_proc is None or action_proc is None:
@@ -223,14 +244,37 @@ class RobotActionManagerNode(Node):
             return
         self._processes.extend([arm_proc, action_proc])
 
+        # 等待短延迟后确认两个进程都存活，且抓取节点已订阅触发话题，
+        # 避免固定 sleep 结束后触发消息丢失导致视觉链路不启动
         time.sleep(self.grasp_startup_delay)
-        if arm_proc.poll() is not None or action_proc.poll() is not None:
-            self.get_logger().error('抓取节点启动失败')
+        if not self._wait_for_trigger(
+            [arm_proc, action_proc], self.grasp_trigger
+        ):
+            self.get_logger().error(
+                '抓取节点启动失败或未就绪（视觉链路未启动）'
+            )
             return
 
         self.grasp_trigger.publish(Bool(data=True))
         if not self.grasp_done.wait(GRASP_DONE_TIMEOUT):
             self.get_logger().warn('等待抓取完成超时')
+        elif self.grasp_result:
+            self.get_logger().info('抓取完成')
+        else:
+            self.get_logger().warn(
+                '抓取失败：未检测到目标或目标不可达'
+            )
+
+    def _wait_for_trigger(self, processes, publisher):
+        """Wait until action processes are alive and subscribers are ready."""
+        deadline = time.monotonic() + self.startup_timeout
+        while time.monotonic() < deadline:
+            if any(proc.poll() is not None for proc in processes):
+                return False
+            if publisher.get_subscription_count() > 0:
+                return True
+            time.sleep(0.1)
+        return False
 
     # --- 遥操作 ---
 
@@ -282,10 +326,13 @@ class RobotActionManagerNode(Node):
             return None
 
     def _terminate_processes(self, processes):
+        """Terminate action processes and their ros2 run children."""
         for proc in processes:
             if proc is not None and proc.poll() is None:
-                proc.terminate()
-        deadline = time.time() + 2.0
+                self._signal_process_group(proc, signal.SIGTERM)
+
+        # 给节点留出清理视觉子进程的时间，再强制结束
+        deadline = time.time() + 5.0
         for proc in processes:
             if proc is None:
                 continue
@@ -293,7 +340,32 @@ class RobotActionManagerNode(Node):
             try:
                 proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                proc.kill()
+                self._signal_process_group(proc, signal.SIGKILL)
+                try:
+                    proc.wait(timeout=1.0)
+                except subprocess.TimeoutExpired:
+                    pass
+
+    @staticmethod
+    def _signal_process_group(proc, sig):
+        """Send a signal to the process group without touching our own."""
+        try:
+            pgid = os.getpgid(proc.pid)
+        except OSError:
+            return
+
+        if pgid == os.getpgid(0):
+            # 防止误杀动作管理器自己的进程组
+            try:
+                proc.send_signal(sig)
+            except OSError:
+                pass
+            return
+
+        try:
+            os.killpg(pgid, sig)
+        except OSError:
+            pass
 
     def _grasp_arm_command(self):
         return [

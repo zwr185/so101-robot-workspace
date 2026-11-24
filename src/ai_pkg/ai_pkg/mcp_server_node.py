@@ -45,7 +45,7 @@ NOD_TIMEOUT = 60.0
 SHAKE_TIMEOUT = 60.0
 
 # 等待 robot_catch_box_node 返回抓取结果的最长时间（秒）
-GRASP_TIMEOUT = 100.0
+GRASP_TIMEOUT = 120.0
 
 
 def log(message):
